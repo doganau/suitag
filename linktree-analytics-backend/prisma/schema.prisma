@@ -1,0 +1,209 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Profile Views Tracking
+model ProfileView {
+  id          String   @id @default(cuid())
+  profileId   String   @map("profile_id")
+  sessionId   String?  @map("session_id")
+  visitorIp   String?  @map("visitor_ip")
+  userAgent   String?  @map("user_agent")
+  referrer    String?
+  country     String?
+  city        String?
+  region      String?
+  deviceType  String?  @map("device_type")
+  browser     String?
+  os          String?
+  timestamp   DateTime @default(now())
+  duration    Int?     // Session duration in seconds
+  
+  @@map("profile_views")
+  @@index([profileId])
+  @@index([timestamp])
+  @@index([country])
+  @@index([deviceType])
+}
+
+// Link Clicks Tracking
+model LinkClick {
+  id          String   @id @default(cuid())
+  profileId   String   @map("profile_id")
+  linkIndex   Int      @map("link_index")
+  linkTitle   String?  @map("link_title")
+  linkUrl     String?  @map("link_url")
+  sessionId   String?  @map("session_id")
+  visitorIp   String?  @map("visitor_ip")
+  userAgent   String?  @map("user_agent")
+  referrer    String?
+  country     String?
+  city        String?
+  region      String?
+  deviceType  String?  @map("device_type")
+  browser     String?
+  os          String?
+  timestamp   DateTime @default(now())
+  
+  @@map("link_clicks")
+  @@index([profileId])
+  @@index([linkIndex])
+  @@index([timestamp])
+  @@index([country])
+  @@index([deviceType])
+}
+
+// User Sessions
+model Session {
+  id          String   @id @default(cuid())
+  sessionId   String   @unique @map("session_id")
+  profileId   String?  @map("profile_id")
+  visitorIp   String?  @map("visitor_ip")
+  userAgent   String?  @map("user_agent")
+  country     String?
+  city        String?
+  region      String?
+  deviceType  String?  @map("device_type")
+  browser     String?
+  os          String?
+  startTime   DateTime @default(now()) @map("start_time")
+  endTime     DateTime? @map("end_time")
+  duration    Int?     // Duration in seconds
+  pageViews   Int      @default(1) @map("page_views")
+  linkClicks  Int      @default(0) @map("link_clicks")
+  
+  @@map("sessions")
+  @@index([sessionId])
+  @@index([profileId])
+  @@index([startTime])
+}
+
+// Analytics Cache for Performance
+model AnalyticsCache {
+  id          String   @id @default(cuid())
+  profileId   String   @map("profile_id")
+  metricType  String   @map("metric_type")
+  period      String   // daily, weekly, monthly, yearly
+  data        Json
+  expiresAt   DateTime @map("expires_at")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  
+  @@unique([profileId, metricType, period])
+  @@map("analytics_cache")
+  @@index([profileId])
+  @@index([expiresAt])
+}
+
+// Real-time Analytics Events
+model RealtimeEvent {
+  id          String   @id @default(cuid())
+  profileId   String   @map("profile_id")
+  eventType   String   @map("event_type") // view, click, session_start, session_end
+  eventData   Json     @map("event_data")
+  timestamp   DateTime @default(now())
+  processed   Boolean  @default(false)
+  
+  @@map("realtime_events")
+  @@index([profileId])
+  @@index([timestamp])
+  @@index([processed])
+}
+
+// Aggregated Daily Stats
+model DailyStats {
+  id          String   @id @default(cuid())
+  profileId   String   @map("profile_id")
+  date        DateTime @db.Date
+  views       Int      @default(0)
+  uniqueViews Int      @default(0) @map("unique_views")
+  clicks      Int      @default(0)
+  uniqueClicks Int     @default(0) @map("unique_clicks")
+  sessions    Int      @default(0)
+  avgDuration Float?   @map("avg_duration")
+  bounceRate  Float?   @map("bounce_rate")
+  
+  @@unique([profileId, date])
+  @@map("daily_stats")
+  @@index([profileId])
+  @@index([date])
+}
+
+// Link Performance Stats
+model LinkStats {
+  id          String   @id @default(cuid())
+  profileId   String   @map("profile_id")
+  linkIndex   Int      @map("link_index")
+  linkTitle   String   @map("link_title")
+  linkUrl     String   @map("link_url")
+  date        DateTime @db.Date
+  clicks      Int      @default(0)
+  uniqueClicks Int     @default(0) @map("unique_clicks")
+  ctr         Float?   // Click-through rate
+  
+  @@unique([profileId, linkIndex, date])
+  @@map("link_stats")
+  @@index([profileId])
+  @@index([date])
+}
+
+// Geographic Stats
+model GeoStats {
+  id          String   @id @default(cuid())
+  profileId   String   @map("profile_id")
+  country     String
+  city        String?
+  region      String?
+  date        DateTime @db.Date
+  views       Int      @default(0)
+  clicks      Int      @default(0)
+  
+  @@unique([profileId, country, city, date])
+  @@map("geo_stats")
+  @@index([profileId])
+  @@index([country])
+  @@index([date])
+}
+
+// Device Stats
+model DeviceStats {
+  id          String   @id @default(cuid())
+  profileId   String   @map("profile_id")
+  deviceType  String   @map("device_type")
+  browser     String?
+  os          String?
+  date        DateTime @db.Date
+  views       Int      @default(0)
+  clicks      Int      @default(0)
+  
+  @@unique([profileId, deviceType, browser, os, date])
+  @@map("device_stats")
+  @@index([profileId])
+  @@index([deviceType])
+  @@index([date])
+}
+
+// Referrer Stats
+model ReferrerStats {
+  id          String   @id @default(cuid())
+  profileId   String   @map("profile_id")
+  referrer    String
+  referrerType String  @map("referrer_type") // social, search, direct, other
+  date        DateTime @db.Date
+  views       Int      @default(0)
+  clicks      Int      @default(0)
+  
+  @@unique([profileId, referrer, date])
+  @@map("referrer_stats")
+  @@index([profileId])
+  @@index([referrerType])
+  @@index([date])
+}
